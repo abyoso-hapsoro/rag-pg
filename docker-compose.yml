@@ -1,0 +1,20 @@
+version: "3.9"
+
+services:
+  postgres:
+    build: ./docker/db
+    container_name: rag-pg
+    image: rag-pg
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ragpass
+      POSTGRES_USER: raguser
+      POSTGRES_DB: ragdb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init:/docker-entrypoint-initdb.d
+
+volumes:
+  pgdata:
