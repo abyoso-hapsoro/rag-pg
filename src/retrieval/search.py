@@ -5,12 +5,21 @@ from src.ingestion.embedding import embed_text
 
 
 # Initialize language model for synonym expansion
-try:
-    nlp = spacy.load("en_core_web_md")
-except OSError:
-    from spacy.cli import download
-    download("en_core_web_md")
-    nlp = spacy.load("en_core_web_md")
+nlp = None
+
+
+def get_nlp():
+    """Lazy-load SpaCy model exactly once."""
+
+    global nlp
+    if nlp is None:
+        try:
+            nlp = spacy.load("en_core_web_md", disable=["ner", "parser", "tagger"])
+        except OSError:
+            from spacy.cli import download
+            download("en_core_web_md")
+            nlp = spacy.load("en_core_web_md", disable=["ner", "parser", "tagger"])
+    return nlp
 
 
 def vector_search(session, query: str, limit: int = 5) -> list[tuple[Document, float]]:
@@ -95,6 +104,50 @@ def fuzzy_search(session, query: str, limit: int = 5, threshold: float = 0.1) ->
     ]
 
 
+def _synonym_expansion(session, query: str, threshold: float) -> str:
+    """
+    Expand query with synonyms from SpaCy vocabulary.
+
+    Args:
+        session (sqlalchemy.orm.Session):
+            Active SQLAlchemy session bound to PostgreSQL.
+        query (str):
+            Text query to search.
+        threshold (float):
+            Similarity threshold for synonym inclusion.
+
+    Returns:
+        list[tuple[Document, float]]: Closest documents in vector space with their similarity score.
+    """
+
+    # Load language model
+    nlp = get_nlp()
+
+    # Vectorize query
+    query_vec = nlp.make_doc(query.lower())
+
+    # Fetch documents
+    docs = session.execute(text("SELECT content FROM documents")).fetchall()
+
+    # Initialize expanded terms
+    expanded_terms = []
+
+    # Iterate each row and add to expanded terms if surpass threshold
+    for row in docs:
+        doc_vec = nlp.make_doc(row.content)
+        for token in doc_vec:
+            similarity = token.similarity(query_vec)
+            if similarity >= threshold:
+                expanded_terms.append(token.text)
+
+    # Deduplicate and prepare expanded query
+    expanded_terms = list({t.lower() for t in expanded_terms})
+    query_expanded = " ".join([query, *expanded_terms])
+
+    # Return expanded query
+    return query_expanded
+
+
 def synonym_vector_search(session, query: str, limit: int = 5, threshold: float = 0.3) -> list[tuple[Document, float]]:
     """
     Perform synonym search using SpaCy similarity and pgvector.
@@ -113,26 +166,8 @@ def synonym_vector_search(session, query: str, limit: int = 5, threshold: float 
         list[tuple[Document, float]]: Closest documents in vector space with their similarity score.
     """
 
-    # Vectorize query
-    query_vec = nlp(query.lower())
-
-    # Fetch documents
-    docs = session.execute(text("SELECT content FROM documents")).fetchall()
-
-    # Initialize expanded terms
-    expanded_terms = []
-
-    # Iterate each row and add to expanded terms if surpass threshold
-    for row in docs:
-        doc_vec = nlp(row.content)
-        for token in doc_vec:
-            similarity = token.similarity(query_vec)
-            if similarity >= threshold:
-                expanded_terms.append(token.text)
-
-    # Deduplicate and prepare expanded query
-    expanded_terms = list({t.lower() for t in expanded_terms})
-    query_expanded = " ".join([query, *expanded_terms])
+    # Expand query with synonyms
+    query_expanded = _synonym_expansion(session, query, threshold)
 
     # Run vector search with expanded query
     return vector_search(session, query_expanded, limit=limit)
@@ -156,26 +191,8 @@ def synonym_fuzzy_search(session, query: str, limit: int = 5, threshold: float =
         list[tuple[Document, float]]: Closest documents in vector space with their similarity score.
     """
 
-    # Vectorize query
-    query_vec = nlp(query.lower())
-
-    # Fetch documents
-    docs = session.execute(text("SELECT content FROM documents")).fetchall()
-
-    # Initialize expanded terms
-    expanded_terms = []
-
-    # Iterate each row and add to expanded terms if surpass threshold
-    for row in docs:
-        doc_vec = nlp(row.content)
-        for token in doc_vec:
-            similarity = token.similarity(query_vec)
-            if similarity >= threshold:
-                expanded_terms.append(token.text)
-
-    # Deduplicate and prepare expanded query
-    expanded_terms = list({t.lower() for t in expanded_terms})
-    query_expanded = " ".join([query, *expanded_terms])
+    # Expand query with synonyms
+    query_expanded = _synonym_expansion(session, query, threshold)
 
     # Run fuzzy search with expanded query
     return fuzzy_search(session, query_expanded, limit=limit, threshold=threshold)

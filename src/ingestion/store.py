@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from ..models.document import Document
-from .embedding import embed_text
+from src.models.document import Document
+from src.ingestion.embedding import embed_text
 
 
 def add_document(session: Session, content: str, embedding: list, title: str = None) -> Document:
