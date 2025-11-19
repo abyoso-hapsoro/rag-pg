@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, Text, String, DateTime, func
 from pgvector.sqlalchemy import Vector
-from .base import Base
+from src.models.base import Base
 
 
 class Document(Base):
