@@ -4,6 +4,7 @@ from src.ingestion.store import add_document, ingest_document
 
 
 class TestEmbeddingIngestion:
+    # Set testing parameter(s)
     EMBED_SAMPLE = 384 * [0]
 
     def test_ingest_document_basic(self):

@@ -1,7 +1,9 @@
 python-dotenv==1.0.1
+pytest==8.3.3
 psycopg2-binary==2.9.9
 SQLAlchemy==2.0.36
 alembic==1.14.0
 pgvector==0.2.5
 sentence-transformers==2.7.0
-pytest==8.3.3
+spacy==3.7.2
+en_core_web_md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.7.1/en_core_web_md-3.7.1.tar.gz

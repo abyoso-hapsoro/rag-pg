@@ -1,2 +1,4 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pg_bigm;
+-- SET pg_bigm.similarity_threshold = 0.2;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
